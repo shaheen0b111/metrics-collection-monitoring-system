@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 5s  # How frequently to scrape targets (default: 15s)
+  evaluation_interval: 5s  # How frequently to evaluate rules (default: 15s)
+
+scrape_configs:
+  - job_name: 'localhost metrics'  # A name for this job
+    static_configs:
+      - targets: ['localhost:8080']  # The address of application's metrics endpoint
