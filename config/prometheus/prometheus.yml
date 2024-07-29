@@ -2,7 +2,16 @@ global:
   scrape_interval: 5s  # How frequently to scrape targets (default: 15s)
   evaluation_interval: 5s  # How frequently to evaluate rules (default: 15s)
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - 'localhost:9093'
+
+rule_files:
+  - "/etc/prometheus/alert-rules.yml"
+
 scrape_configs:
   - job_name: 'localhost metrics'  # A name for this job
     static_configs:
-      - targets: ['localhost:8080']  # The address of application's metrics endpoint
+      - targets: ['localhost:8080']  # The address of the application's metrics endpoint

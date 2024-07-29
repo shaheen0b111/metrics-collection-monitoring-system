@@ -1,0 +1,30 @@
+groups:
+  - name: Memory-usage
+    rules:
+      - alert: 'High memory usage'
+        expr: avg(gauge_mem_usage) > 30
+        labels:
+          severity: 'critical'
+        annotations:
+          title: "Memory Usage"
+          description: 'Memory usage threshold set to 30%.'
+
+  - name: CPU-usage
+    rules:
+      - alert: 'High cpu usage'
+        expr: avg(gauge_cpu_usage) > 80
+        labels:
+          severity: 'critical'
+        annotations:
+          title: "CPU Usage"
+          description: 'CPU usage threshold set to 80%.'
+
+  - name: Disk-usage
+    rules:
+      - alert: 'High Disk usage'
+        expr: avg(gauge_disk_usage) > 80
+        labels:
+          severity: 'critical'
+        annotations:
+          title: "Disk Usage"
+          description: 'Disk usage threshold set to 80%.'

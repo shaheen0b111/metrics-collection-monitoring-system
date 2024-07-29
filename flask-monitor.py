@@ -4,71 +4,121 @@ from tzlocal import get_localzone
 from prometheus_client import Gauge, start_http_server
 import pytz
 import psutil, time
-import sys,requests,psutil
+import sys,requests
+import argparse,threading
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s',
+                    handlers=[logging.FileHandler("/app/logs/server.log"),
+                              logging.StreamHandler()])
 
 app = Flask(__name__)
 
-def local_to_utc(local_time):
-    """
-    Convert a local time string to UTC datetime.
-    
-    Parameters:
-    - local_time: The local time as a string in ISO 8601 format (e.g., "2024-07-27T15:00:00").
-    Returns:
-    - A datetime object in UTC timezone.
-    """
-    try:
-        # Parse the local time string into a naive datetime object
-        #local_time = datetime.fromisoformat(local_time_str) if type(local_time) is str else local_time
+# Define prometheus gauge metrics object 
+gauge_cpu_usage = Gauge("gauge_cpu_usage","System CPU Usage in percent",['type'])
+gauge_memory_usage = Gauge("gauge_mem_usage","System Memory Usage in percent",['type'])
+gauge_disk_usage = Gauge("gauge_disk_usage","System Disk Usage in percent",['type'])
 
-        # Determine timezone
-        local_tz = get_localzone()
-        print(local_tz)
-        # Localize the naive datetime to the determined local timezone
-        print(local_time)
-        localized_local_time = local_time.replace(tzinfo=local_tz)
-        print(localized_local_time)
-        # Convert the localized time to UTC
-        utc_time = localized_local_time.astimezone(pytz.utc)
-        print(utc_time)
-        return utc_time
-    except ValueError:
-        raise ValueError("Invalid date format. Use ISO 8601 format (e.g., 2024-07-27T15:00:00).")
-    except LookupError:
-        raise ValueError("Unknown timezone. Please provide a valid timezone string.")
+# Initialize parser
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--interval", help = "pass interval time that metrics collction should take")
+# Read arguments from command line
+args = parser.parse_args()
+interval_gap = int(args.interval) # convert the interval time into int
 
 
-def utc_to_local(utc_time):
-    """
-    Convert a UTC time string to local datetime.
+def flask_app():
+    logging.info("Starting Flask app")
+    app.run(port=5000)
+
+def prometheus_monitor():
+    logging.info("Starting Prometheus server")
+    #start prometheus HTTP client on port 8080 that will be serving runtime metrics
+    print("Staring Prometheus clinet on 8080 : http://localhost:8080/metrics")
+    start_http_server(8080)
+    # Infinitely Starts the metrics collection
+    while True:
+        fetch_metrics(interval_gap)
+
+#Function that collect metrics
+def fetch_metrics(interval_gap):
+    print("Fetching Metrics - CPU, Memory, Disk")
+    #fetch cpu usage in percentage using psutil
+    cpu_usage_percent = psutil.cpu_percent()
+    mem_usage_percent =  psutil.virtual_memory().percent
+    disk_usage_percent =  psutil.disk_usage('/').percent
+
+    # Set the prometheus gauge object with the metrics value fetched
+    gauge_cpu_usage.labels(type='CPU').set(cpu_usage_percent)
+    gauge_memory_usage.labels(type='Memory').set(mem_usage_percent)
+    gauge_disk_usage.labels(type='').set(disk_usage_percent)
+    time.sleep(interval_gap)
+
+
+# def local_to_utc(local_time):
+#     """
+#     Convert a local time string to UTC datetime.
     
-    Parameters:
-    - utc_time_str: The UTC time as a string in ISO 8601 format (e.g., "2024-07-27T15:00:00").
+#     Parameters:
+#     - local_time: The local time as a string in ISO 8601 format (e.g., "2024-07-27T15:00:00").
+#     Returns:
+#     - A datetime object in UTC timezone.
+#     """
+#     try:
+#         # Parse the local time string into a naive datetime object
+#         local_time = datetime.fromisoformat(local_time) if type(local_time) is str else local_time
+
+#         # Determine timezone
+#         local_tz = get_localzone()
+#         print(local_tz)
+#         # Localize the naive datetime to the determined local timezone
+#         print(local_time)
+#         localized_local_time = local_time.replace(tzinfo=local_tz)
+#         print(localized_local_time)
+#         # Convert the localized time to UTC
+#         utc_time = localized_local_time.astimezone(pytz.utc)
+#         print(utc_time)
+#         return utc_time
+#     except ValueError:
+#         raise ValueError("Invalid date format. Use ISO 8601 format (e.g., 2024-07-27T15:00:00).")
+#     except LookupError:
+#         raise ValueError("Unknown timezone. Please provide a valid timezone string.")
+
+
+# def utc_to_local(utc_time):
+#     """
+#     Convert a UTC time string to local datetime.
     
-    Returns:
-    - A datetime object in local timezone.
-    """
-    try:
-        print(utc_time)
-        # Assume the time is in UTC, so localize the naive datetime to UTC
-        utc_tz = pytz.utc
-        utc_time = utc_tz.localize(utc_time)
-        print(utc_time)
-        # Get the local timezone
-        local_tz = get_localzone()
-        print(local_tz)
+#     Parameters:
+#     - utc_time_str: The UTC time as a string in ISO 8601 format (e.g., "2024-07-27T15:00:00").
+    
+#     Returns:
+#     - A datetime object in local timezone.
+#     """
+#     try:
+#         print(utc_time)
+#         # Assume the time is in UTC, so localize the naive datetime to UTC
+#         utc_tz = pytz.utc
+#         utc_time = utc_tz.localize(utc_time)
+#         print(utc_time)
+#         # Get the local timezone
+#         local_tz = get_localzone()
+#         print(local_tz)
         
-        # Convert the UTC time to local timezone
-        local_time = utc_time.astimezone(local_tz)
-        print(local_time)
+#         # Convert the UTC time to local timezone
+#         local_time = utc_time.astimezone(local_tz)
+#         print(local_time)
         
-        return local_time
-    except ValueError:
-        raise ValueError("Invalid date format. Use ISO 8601 format (e.g., 2024-07-27T15:00:00).")
-    except LookupError:
-        raise ValueError("Unknown timezone. Please provide a valid timezone string.")
+#         return local_time
+#     except ValueError:
+#         raise ValueError("Invalid date format. Use ISO 8601 format (e.g., 2024-07-27T15:00:00).")
+#     except LookupError:
+#         raise ValueError("Unknown timezone. Please provide a valid timezone string.")
 
 
+# To be called when time_range is given and either of start_time or end_time is given
 def calculate_time_range(start_time, end_time, time_range):
     """ Calculate start and end times based on provided parameters and time range. """
     print(start_time,end_time,time_range)
@@ -90,6 +140,7 @@ def calculate_time_range(start_time, end_time, time_range):
 
     return start_time, end_time # datetime object will be return Eg: datetime.datetime(2024, 7, 27, 15, 0)
 
+# Querying to prometheus server on port 9090
 def query_prometheus(start_time, end_time, type):
     """ Query Prometheus with required metrics type and return results. """
     prom_url = 'http://localhost:9090/api/v1/query_range'
@@ -126,7 +177,7 @@ def avg_usage():
         end_time_str = request.args.get('end')
         time_range = request.args.get('range', type=int)  # Time range in hours
         resource = request.args.get('resource') # type can be mem/cpu/disk
-        is_utc = request.args.get('utc',default='false') #Expected default to be passed as local
+        #is_utc = request.args.get('utc',default='false') #Expected default to be passed as local
         
         if not resource:
             return jsonify({"error": "Please provide one of the metrics type - mem/cpu/disk"}), 400
@@ -142,13 +193,13 @@ def avg_usage():
             start_time = datetime.fromisoformat(start_time_str)
             end_time = datetime.fromisoformat(end_time_str)
         
-        if is_utc == "true" and (start_time_str or end_time_str): # start and end which is coming as an input
-            '''
-            when start and end time is not given and only time_range is given -> it should not go for utc conversion
-            '''
-            print("Doing UTC conversion")
-            start_time = utc_to_local(start_time)
-            end_time = utc_to_local(end_time)
+        # if is_utc == "true" and (start_time_str or end_time_str): # start and end which is coming as an input
+        #     '''
+        #     when start and end time is not given and only time_range is given -> it should not go for utc conversion
+        #     '''
+        #     print("Doing UTC conversion")
+        #     start_time = utc_to_local(start_time)
+        #     end_time = utc_to_local(end_time)
 
         if start_time >= end_time:
             return jsonify({"error": "Start time must be before end time."}), 400
@@ -178,8 +229,7 @@ def metrics_usage():
         end_time_str = request.args.get('end')
         time_range = request.args.get('range', type=int)  # Time range in hours
         resource = request.args.get('resource') # type can be mem/cpu/disk
-        is_utc = request.args.get('utc',default='false') #Expected default to be passed as local
-        
+        #is_utc = request.args.get('utc',default='false') #Expected default to be passed as local
         
         if not resource:
             return jsonify({"error": "Please provide one of the metrics type - mem/cpu/disk"}), 400
@@ -195,9 +245,13 @@ def metrics_usage():
             start_time = datetime.fromisoformat(start_time_str)
             end_time = datetime.fromisoformat(end_time_str)
         
-        if is_utc == "true" and time_range is None:
-            start_time = utc_to_local(start_time)
-            end_time = utc_to_local(end_time)
+        # if is_utc == "true" and (start_time_str or end_time_str): # start and end which is coming as an input
+        #     '''
+        #     when start and end time is not given and only time_range is given -> it should not go for utc conversion
+        #     '''
+        #     print("Doing UTC conversion")
+        #     start_time = utc_to_local(start_time)
+        #     end_time = utc_to_local(end_time)
 
         if start_time >= end_time:
             return jsonify({"error": "Start time must be before end time."}), 400
@@ -210,7 +264,8 @@ def metrics_usage():
             return jsonify({"error": "No data available for the given time range."}), 404
         
         # return all metrics values fetched
-        values = [{value[0]:float(value[1])} for value in result]
+        #values = [{datetime.fromtimestamp(value[0]).strftime('%Y-%m-%d %H:%M:%S'):float(value[1])} if is_utc == "false" else {local_to_utc(datetime.fromtimestamp(value[0])).strftime('%Y-%m-%d %H:%M:%S'):float(value[1])} for value in result]
+        values = [{datetime.fromtimestamp(value[0]).strftime('%Y-%m-%d %H:%M:%S'):float(value[1])} for value in result]
         return jsonify({f"{resource}_usage": values})
 
     except ValueError as ve:
@@ -219,6 +274,22 @@ def metrics_usage():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/alert', methods=['POST'])
+def receive_alert():
+    alert_data = request.json
+    print("Received alert:", alert_data)
+    # Process the alert as needed
+    # For example, you could log it
+    with open("/app/logs/alert.log", 'a+') as fp:
+        fp.write(alert_data)
+    return jsonify({"status": "success"}), 200
+
 if __name__ == '__main__':
-    app.run(port=5000)
+    prometheus_monitor_thread = threading.Thread(target=prometheus_monitor)
+    flask_app_thread = threading.Thread(target=flask_app)
     
+    # Start cpu/memory/disk percentage metrics collection and expose it at port 8080
+    prometheus_monitor_thread.start()
+    
+    # Start the flask app which provide the enpoint at 5000 to query the prometheus back end at 9090
+    flask_app_thread.start()

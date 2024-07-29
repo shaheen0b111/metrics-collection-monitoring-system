@@ -1,0 +1,15 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname']
+  group_wait: 1m
+  group_interval: 5m
+  repeat_interval: 5m
+  receiver: 'webhook-notifications'
+
+receivers:
+  - name: 'webhook-notifications'
+    webhook_configs:
+      - url: 'http://localhost:5000/alert' #flask-monitor app alert endpoint
+        send_resolved: true

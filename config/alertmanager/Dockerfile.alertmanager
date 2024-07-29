@@ -1,0 +1,7 @@
+FROM prom/alertmanager
+
+USER root
+ADD alertmanager.yml /etc/alertmanager/
+RUN chown nobody:nobody /etc/alertmanager/alertmanager.yml
+RUN chmod 644 /etc/alertmanager/alertmanager.yml
+USER nobody

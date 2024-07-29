@@ -1,0 +1,8 @@
+FROM prom/prometheus
+
+USER root
+ADD prometheus.yml /etc/prometheus/
+ADD alert-rules.yml /etc/prometheus/
+RUN chown nobody:nobody /etc/prometheus/prometheus.yml /etc/prometheus/alert-rules.yml
+RUN chmod 664 /etc/prometheus/prometheus.yml
+USER nobody
