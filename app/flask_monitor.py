@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from datetime import datetime, timedelta, timezone
 from tzlocal import get_localzone
 from prometheus_client import Gauge, start_http_server
@@ -11,41 +11,33 @@ import logging
 # Set up logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s',
-                    handlers=[logging.FileHandler("/app/logs/server.log"),
+                    handlers=[logging.FileHandler("server.log"),
                               logging.StreamHandler()])
 
 app = Flask(__name__)
-
-# Define prometheus gauge metrics object 
-gauge_cpu_usage = Gauge("gauge_cpu_usage","System CPU Usage in percent",['type'])
-gauge_memory_usage = Gauge("gauge_mem_usage","System Memory Usage in percent",['type'])
-gauge_disk_usage = Gauge("gauge_disk_usage","System Disk Usage in percent",['type'])
-
-# Initialize parser
-parser = argparse.ArgumentParser()
-parser.add_argument("-i", "--interval", help = "pass interval time that metrics collction should take")
-# Read arguments from command line
-args = parser.parse_args()
-interval_gap = int(args.interval) # convert the interval time into int
 
 
 def flask_app():
     logging.info("Starting Flask app")
     app.run(port=5000)
 
-def prometheus_monitor():
+def prometheus_monitor(interval_gap):
+    # Define prometheus gauge metrics object 
+    gauge_cpu_usage = Gauge("gauge_cpu_usage","System CPU Usage in percent",['type'])
+    gauge_memory_usage = Gauge("gauge_mem_usage","System Memory Usage in percent",['type'])
+    gauge_disk_usage = Gauge("gauge_disk_usage","System Disk Usage in percent",['type'])
     logging.info("Starting Prometheus server")
     #start prometheus HTTP client on port 8080 that will be serving runtime metrics
     print("Staring Prometheus clinet on 8080 : http://localhost:8080/metrics")
     start_http_server(8080)
     # Infinitely Starts the metrics collection
     while True:
-        fetch_metrics(interval_gap)
+        fetch_metrics(interval_gap,gauge_cpu_usage,gauge_memory_usage,gauge_disk_usage)
 
 #Function that collect metrics
-def fetch_metrics(interval_gap):
-    print("Fetching Metrics - CPU, Memory, Disk")
-    #fetch cpu usage in percentage using psutil
+def fetch_metrics(interval_gap,gauge_cpu_usage,gauge_memory_usage,gauge_disk_usage):
+    print(f"{datetime.now()} : Fetching Metrics - CPU, Memory, Disk")
+    #fetch cpu/mem/disk usage in percentage using psutil
     cpu_usage_percent = psutil.cpu_percent()
     mem_usage_percent =  psutil.virtual_memory().percent
     disk_usage_percent =  psutil.disk_usage('/').percent
@@ -53,7 +45,7 @@ def fetch_metrics(interval_gap):
     # Set the prometheus gauge object with the metrics value fetched
     gauge_cpu_usage.labels(type='CPU').set(cpu_usage_percent)
     gauge_memory_usage.labels(type='Memory').set(mem_usage_percent)
-    gauge_disk_usage.labels(type='').set(disk_usage_percent)
+    gauge_disk_usage.labels(type='Disk').set(disk_usage_percent)
     time.sleep(interval_gap)
 
 
@@ -123,15 +115,12 @@ def calculate_time_range(start_time, end_time, time_range):
     """ Calculate start and end times based on provided parameters and time range. """
     print(start_time,end_time,time_range)
     if end_time and time_range:
-        print("end_time and time_range")
         end_time = datetime.fromisoformat(end_time)
         start_time = end_time - timedelta(hours=time_range)
     elif start_time and time_range:
-        print("start_time and time_range")
         start_time = datetime.fromisoformat(start_time)
         end_time = start_time + timedelta(hours=time_range)
     elif time_range:
-        print("time_range")
         end_time = datetime.now()
         start_time = end_time - timedelta(hours=time_range)
     
@@ -169,6 +158,9 @@ def query_prometheus(start_time, end_time, type):
     else:
         raise Exception("Error querying Prometheus API")
 
+@app.route('/')
+def index():
+    return render_template('index.html')
     
 @app.route('/avg_usage', methods=['GET'])
 def avg_usage():
@@ -280,12 +272,18 @@ def receive_alert():
     print("Received alert:", alert_data)
     # Process the alert as needed
     # For example, you could log it
-    with open("/app/logs/alert.log", 'a+') as fp:
-        fp.write(alert_data)
+    with open("alert.log", 'a+') as fp:
+        fp.write(str(alert_data))
     return jsonify({"status": "success"}), 200
 
 if __name__ == '__main__':
-    prometheus_monitor_thread = threading.Thread(target=prometheus_monitor)
+    # Initialize parser
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--interval", help = "Pass interval time that metrics collction should take", required=True)
+    # Read arguments from command line
+    args = parser.parse_args()
+    interval_gap = int(args.interval) # convert the interval time into int
+    prometheus_monitor_thread = threading.Thread(target=prometheus_monitor,args=(interval_gap,))
     flask_app_thread = threading.Thread(target=flask_app)
     
     # Start cpu/memory/disk percentage metrics collection and expose it at port 8080

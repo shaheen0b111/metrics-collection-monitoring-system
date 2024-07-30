@@ -2,7 +2,7 @@
 
 ## Setup Python metrics collector on port 8080
 ## Flask app for exposing end-point on port 5000 to fetch the metrics and average metrics
-docker run -d --name metrics-monitoring --network host shaheensayyed/metrics-monitor:appV1
+docker run -d --name metrics-monitoring --network host shaheensayyed/metrics-monitor:appV3
 echo "\nMetrics collector started at : http://localhost:8080/"
 echo "\nFlask app started at : http://localhost:5000/"
 

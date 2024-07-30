@@ -7,10 +7,13 @@ RUN useradd -m flask
 WORKDIR /app
 
 # Copy the current directory contents into the container at /usr/src/app
-COPY flask-monitor.py requirements.txt /app/
+COPY app/flask_monitor.py requirements.txt /app/
 
-# Install all packages & Create directory for logs &Change ownership of the /app directory to the new user
-RUN pip3 install --no-cache-dir -r /app/requirements.txt && mkdir /app/logs && chown -R flask:flask /app
+# Copy only the templates directory
+COPY templates/ /app/templates/
+
+# Install all packages & Change ownership of the /app directory to the new user
+RUN pip3 install --no-cache-dir -r /app/requirements.txt && chown -R flask:flask /app
 
 # Switch to the non-root user
 USER flask
@@ -20,7 +23,10 @@ EXPOSE 8080
 EXPOSE 5000
 # Run the Python file when the container launches
 #Use ENTRYPOINT to define the executable
-ENTRYPOINT ["python3", "flask-monitor.py","-i"]
+ENTRYPOINT ["python3", "flask_monitor.py","-i"]
 
 #Use CMD to provide default arguments
 CMD ["5"]
+
+#Build Docker Image -> 
+#sudo docker build -f Dockerfile.app -t shaheensayyed/metrics-monitor:appV3 .

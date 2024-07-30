@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metrics Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="datetime-local"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .results pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Metrics Dashboard</h1>
+        <div class="form-group">
+            <label for="start">Start Date and Time:</label>
+            <input type="datetime-local" id="start" name="start">
+        </div>
+        <div class="form-group">
+            <label for="end">End Date and Time:</label>
+            <input type="datetime-local" id="end" name="end">
+        </div>
+        <div class="form-group">
+            <label for="range">Time Range (hours):</label>
+            <input type="number" id="range" name="range" min="1">
+        </div>
+        <div class="form-group">
+            <label for="resource">Resource:</label>
+            <select id="resource" name="resource">
+                <option value="cpu">CPU</option>
+                <option value="mem">Memory</option>
+                <option value="disk">Disk</option>
+            </select>
+        </div>
+        <button onclick="fetchMetrics()">Get Metrics</button>
+        <button onclick="fetchAverage()">Get Average</button>
+
+
+        <div class="results">
+            <h2>Results:</h2>
+            <pre id="result"></pre>
+        </div>
+    </div>
+
+
+    <script>
+        function fetchMetrics() {
+            const start = formatDateTime(document.getElementById('start').value);
+            const end = formatDateTime(document.getElementById('end').value);
+            const range = document.getElementById('range').value;
+            const resource = document.getElementById('resource').value;
+
+
+            fetch(`/metrics_usage?start=${start}&end=${end}&range=${range}&resource=${resource}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById('result').textContent = `Error: ${error}`;
+                });
+        }
+
+
+        function fetchAverage() {
+            const start = formatDateTime(document.getElementById('start').value);
+            const end = formatDateTime(document.getElementById('end').value);
+            const range = document.getElementById('range').value;
+            const resource = document.getElementById('resource').value;
+
+
+            fetch(`/avg_usage?start=${start}&end=${end}&range=${range}&resource=${resource}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById('result').textContent = `Error: ${error}`;
+                });
+        }
+
+
+        function formatDateTime(value) {
+            // The input type 'datetime-local' already provides the format YYYY-MM-DDTHH:MM
+            // This function ensures the format is correct
+            if (value) {
+                const [date, time] = value.split('T');
+                const formatted = `${date}T${time}:00`;
+                return formatted;
+            }
+            return '';
+        }
+    </script>
+</body>
+</html>
